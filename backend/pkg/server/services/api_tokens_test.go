@@ -142,6 +142,7 @@ func setupTestContext(uid, rid uint64, uhash string, permissions []string) (*gin
 	c.Set("rid", rid)
 	c.Set("uhash", uhash)
 	c.Set("prm", permissions)
+	c.Set("tid", models.UserTypeLocal.String())
 
 	return c, w
 }
@@ -222,6 +223,17 @@ func TestTokenService_CreateToken(t *testing.T) {
 			expectedCode: http.StatusCreated,
 			expectToken:  true,
 		},
+		{
+			name:          "missing create privilege",
+			globalSalt:    "custom_salt",
+			requestBody:   `{"ttl": 3600}`,
+			uid:           1,
+			rid:           2,
+			uhash:         "testhash",
+			expectedCode:  http.StatusForbidden,
+			expectToken:   false,
+			errorContains: "not permitted",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -231,7 +243,11 @@ func TestTokenService_CreateToken(t *testing.T) {
 
 			tokenCache := auth.NewTokenCache(db)
 			service := NewTokenService(db, tc.globalSalt, tokenCache, nil)
-			c, w := setupTestContext(tc.uid, tc.rid, tc.uhash, []string{"settings.tokens.create"})
+			permissions := []string{"settings.tokens.create"}
+			if tc.name == "missing create privilege" {
+				permissions = []string{"settings.tokens.view"}
+			}
+			c, w := setupTestContext(tc.uid, tc.rid, tc.uhash, permissions)
 
 			c.Request = httptest.NewRequest(http.MethodPost, "/tokens", bytes.NewBufferString(tc.requestBody))
 			c.Request.Header.Set("Content-Type", "application/json")
@@ -261,6 +277,23 @@ func TestTokenService_CreateToken(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTokenService_CreateTokenRejectsAPITokenPrincipal(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	tokenCache := auth.NewTokenCache(db)
+	service := NewTokenService(db, "custom_salt", tokenCache, nil)
+	c, w := setupTestContext(1, 2, "testhash", []string{"settings.tokens.create"})
+	c.Set("tid", models.UserTypeAPI.String())
+	c.Request = httptest.NewRequest(http.MethodPost, "/tokens", bytes.NewBufferString(`{"ttl": 3600}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	service.CreateToken(c)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Contains(t, w.Body.String(), "not permitted")
 }
 
 func TestTokenService_CreateToken_NameUniqueness(t *testing.T) {

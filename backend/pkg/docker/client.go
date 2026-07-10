@@ -681,6 +681,10 @@ func (dc *dockerClient) CopyToContainer(
 	content io.Reader,
 	options container.CopyToContainerOptions,
 ) error {
+	if !isContainerWorkPath(dstPath) {
+		return fmt.Errorf("copy destination %q is outside container work directory", dstPath)
+	}
+
 	return dc.client.CopyToContainer(ctx, containerID, dstPath, content, options)
 }
 
@@ -690,6 +694,11 @@ func (dc *dockerClient) CopyFromContainer(
 	srcPath string,
 ) (io.ReadCloser, container.PathStat, error) {
 	return dc.client.CopyFromContainer(ctx, containerID, srcPath)
+}
+
+func isContainerWorkPath(containerPath string) bool {
+	cleanPath := path.Clean("/" + strings.TrimPrefix(filepath.ToSlash(containerPath), "/"))
+	return cleanPath == WorkFolderPathInContainer || strings.HasPrefix(cleanPath, WorkFolderPathInContainer+"/")
 }
 
 func (dc *dockerClient) pullImage(ctx context.Context, imageName string) error {

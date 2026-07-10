@@ -13,6 +13,7 @@ import (
 	"pentagi/cmd/installer/checker"
 	"pentagi/cmd/installer/files"
 	"pentagi/cmd/installer/wizard/logger"
+	servermodels "pentagi/pkg/server/models"
 )
 
 const (
@@ -885,6 +886,9 @@ func (p *processor) resetPassword(ctx context.Context, stack ProductStack, state
 
 	if state.passwordValue == "" {
 		return fmt.Errorf("password value is required")
+	}
+	if !servermodels.IsStrongPassword(state.passwordValue) {
+		return fmt.Errorf("password must be at least 12 characters and include uppercase, lowercase, number, and special character")
 	}
 
 	p.appendLog("Resetting admin password...", stack, state)

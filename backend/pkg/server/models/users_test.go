@@ -152,11 +152,11 @@ func TestPasswordValid(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid long password over 15 chars",
+			name: "valid longer strong password",
 			pw: Password{
 				CurrentPassword: "oldpasswordvalue",
-				Password:        "newpasswordvalue1",
-				ConfirmPassword: "newpasswordvalue1",
+				Password:        "NewStrong1!value",
+				ConfirmPassword: "NewStrong1!value",
 			},
 			wantErr: false,
 		},
@@ -270,7 +270,7 @@ func TestUserPasswordValid(t *testing.T) {
 	t.Run("valid user password", func(t *testing.T) {
 		t.Parallel()
 		up := UserPassword{
-			Password: "somepassword",
+			Password: "SecurePass123!",
 			User: User{
 				ID:     1,
 				Hash:   "abcdef1234567890abcdef1234567890",
@@ -299,10 +299,26 @@ func TestUserPasswordValid(t *testing.T) {
 		assert.Error(t, up.Valid())
 	})
 
-	t.Run("invalid user in user password", func(t *testing.T) {
+	t.Run("weak user password", func(t *testing.T) {
 		t.Parallel()
 		up := UserPassword{
 			Password: "somepassword",
+			User: User{
+				ID:     1,
+				Hash:   "abcdef1234567890abcdef1234567890",
+				Type:   UserTypeLocal,
+				Mail:   "test@example.com",
+				Status: UserStatusActive,
+				RoleID: RoleUser,
+			},
+		}
+		assert.Error(t, up.Valid())
+	})
+
+	t.Run("invalid user in user password", func(t *testing.T) {
+		t.Parallel()
+		up := UserPassword{
+			Password: "SecurePass123!",
 			User: User{
 				Mail: "",
 			},

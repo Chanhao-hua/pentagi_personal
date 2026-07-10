@@ -2001,7 +2001,7 @@ Password requirements:
 
 	// Validation errors
 	ResetPasswordErrorEmptyPassword = "Password cannot be empty"
-	ResetPasswordErrorShortPassword = "Password must be at least 5 characters long"
+	ResetPasswordErrorShortPassword = "Password must be at least 12 characters and include uppercase, lowercase, number, and special character"
 	ResetPasswordErrorMismatch      = "Passwords do not match"
 
 	// Help content

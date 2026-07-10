@@ -236,6 +236,7 @@ func NewRouter(
 	}
 
 	router.Use(gin.Recovery())
+	router.Use(securityHeadersMiddleware())
 	router.Use(logger.WithGinLogger("pentagi-api"))
 
 	cookieStore := cookie.NewStore(auth.MakeCookieStoreKey(cfg.CookieSigningSalt)...)

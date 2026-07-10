@@ -1,0 +1,46 @@
+FROM alpine:3.20
+
+RUN addgroup -g 998 docker && \
+    addgroup -S pentagi && \
+    adduser -S pentagi -G pentagi && \
+    addgroup pentagi docker
+
+RUN apk --no-cache add ca-certificates openssl openssh-keygen shadow
+
+COPY scripts/entrypoint.sh /opt/pentagi/bin/entrypoint.sh
+
+RUN sed -i 's/\r//' /opt/pentagi/bin/entrypoint.sh && \
+    chmod +x /opt/pentagi/bin/entrypoint.sh && \
+    mkdir -p \
+        /root/.ollama \
+        /opt/pentagi/bin \
+        /opt/pentagi/ssl \
+        /opt/pentagi/fe \
+        /opt/pentagi/logs \
+        /opt/pentagi/data \
+        /opt/pentagi/conf && \
+    chmod 777 /root/.ollama
+
+COPY build/linux-amd64/pentagi /opt/pentagi/bin/pentagi
+COPY build/linux-amd64/ctester /opt/pentagi/bin/ctester
+COPY build/linux-amd64/ftester /opt/pentagi/bin/ftester
+COPY build/linux-amd64/etester /opt/pentagi/bin/etester
+COPY frontend/dist /opt/pentagi/fe
+COPY examples/configs/*.provider.yml /opt/pentagi/conf/
+COPY LICENSE /opt/pentagi/LICENSE
+COPY NOTICE /opt/pentagi/NOTICE
+COPY EULA.md /opt/pentagi/EULA
+COPY EULA.md /opt/pentagi/fe/EULA.md
+
+RUN chmod +x \
+        /opt/pentagi/bin/pentagi \
+        /opt/pentagi/bin/ctester \
+        /opt/pentagi/bin/ftester \
+        /opt/pentagi/bin/etester && \
+    chown -R pentagi:pentagi /opt/pentagi
+
+WORKDIR /opt/pentagi
+
+USER pentagi
+
+ENTRYPOINT ["/opt/pentagi/bin/entrypoint.sh", "/opt/pentagi/bin/pentagi"]

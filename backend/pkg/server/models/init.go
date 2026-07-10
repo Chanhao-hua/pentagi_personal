@@ -22,8 +22,50 @@ var (
 	validate *validator.Validate
 )
 
+var weakPasswordFragments = []string{
+	"password",
+	"123456",
+	"qwerty",
+	"letmein",
+	"admin",
+	"changeme",
+	"welcome",
+}
+
 func GetValidator() *validator.Validate {
 	return validate
+}
+
+func IsStrongPassword(password string) bool {
+	if len(password) < 12 {
+		return false
+	}
+
+	normalized := strings.ToLower(password)
+	for _, weak := range weakPasswordFragments {
+		if strings.Contains(normalized, weak) {
+			return false
+		}
+	}
+
+	hasNumber := false
+	hasLower := false
+	hasUpper := false
+	hasSpecial := false
+	for _, r := range password {
+		switch {
+		case r >= '0' && r <= '9':
+			hasNumber = true
+		case r >= 'a' && r <= 'z':
+			hasLower = true
+		case r >= 'A' && r <= 'Z':
+			hasUpper = true
+		default:
+			hasSpecial = true
+		}
+	}
+
+	return hasNumber && hasLower && hasUpper && hasSpecial
 }
 
 // IValid is interface to control all models from user code
@@ -66,21 +108,12 @@ func templateValidatorString(regexpString string) validator.Func {
 }
 
 func strongPasswordValidatorString() validator.Func {
-	numberRegex := regexp.MustCompile("[0-9]")
-	alphaLRegex := regexp.MustCompile("[a-z]")
-	alphaURegex := regexp.MustCompile("[A-Z]")
-	specRegex := regexp.MustCompile("[!@#$&*]")
 	return func(fl validator.FieldLevel) bool {
 		field := fl.Field()
 
 		switch field.Kind() {
 		case reflect.String:
-			password := fl.Field().String()
-			return len(password) > 15 || (len(password) >= 8 &&
-				numberRegex.MatchString(password) &&
-				alphaLRegex.MatchString(password) &&
-				alphaURegex.MatchString(password) &&
-				specRegex.MatchString(password))
+			return IsStrongPassword(fl.Field().String())
 		default:
 			return false
 		}

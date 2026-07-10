@@ -11,33 +11,33 @@ import { FormSubmitButton } from '@/components/ui/form-submit-button';
 import { Input } from '@/components/ui/input';
 import { api, type ApiErrorResponse, type ApiHttpError } from '@/lib/axios';
 
+const weakPasswordFragments = ['password', '123456', 'qwerty', 'letmein', 'admin', 'changeme', 'welcome'];
+
+const isStrongPassword = (password: string) => {
+    const normalized = password.toLowerCase();
+
+    return (
+        password.length >= 12 &&
+        /[0-9]/.test(password) &&
+        /[a-z]/.test(password) &&
+        /[A-Z]/.test(password) &&
+        /[^A-Za-z0-9]/.test(password) &&
+        !weakPasswordFragments.some((weak) => normalized.includes(weak))
+    );
+};
+
 const passwordChangeSchema = z
     .object({
         confirmPassword: z.string().min(1, { message: 'Confirm your password' }),
         currentPassword: z.string().min(1, { message: 'Current password is required' }),
         newPassword: z
             .string()
-            .min(8, { message: 'Password must be at least 8 characters' })
+            .min(12, { message: 'Password must be at least 12 characters' })
             .max(100, { message: 'Password must not exceed 100 characters' })
-            .refine(
-                (password) => {
-                    if (password.length > 15) {
-                        return true;
-                    }
-
-                    return (
-                        password.length >= 8 &&
-                        /[0-9]/.test(password) &&
-                        /[a-z]/.test(password) &&
-                        /[A-Z]/.test(password) &&
-                        /[!@#$&*]/.test(password)
-                    );
-                },
-                {
-                    message:
-                        'Password must be either longer than 15 characters, or at least 8 characters with a number, lowercase, uppercase, and special character (!@#$&*)',
-                },
-            ),
+            .refine(isStrongPassword, {
+                message:
+                    'Password must include uppercase, lowercase, number, and special character, and must not be a common weak password',
+            }),
     })
     .refine((data) => data.newPassword === data.confirmPassword, {
         message: "Passwords don't match",

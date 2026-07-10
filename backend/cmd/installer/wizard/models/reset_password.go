@@ -11,6 +11,7 @@ import (
 	"pentagi/cmd/installer/wizard/locale"
 	"pentagi/cmd/installer/wizard/styles"
 	"pentagi/cmd/installer/wizard/window"
+	servermodels "pentagi/pkg/server/models"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -281,7 +282,7 @@ func (m *ResetPasswordModel) validatePasswords(newPassword, confirmPassword stri
 		return fmt.Errorf(locale.ResetPasswordErrorEmptyPassword)
 	}
 
-	if len(newPassword) < 5 {
+	if !servermodels.IsStrongPassword(newPassword) {
 		return fmt.Errorf(locale.ResetPasswordErrorShortPassword)
 	}
 

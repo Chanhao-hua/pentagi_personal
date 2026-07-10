@@ -63,6 +63,18 @@ func (s *TokenService) CreateToken(c *gin.Context) {
 		return
 	}
 
+	prms := c.GetStringSlice("prm")
+	if !auth.LookupPerm(prms, "settings.tokens.create") {
+		logger.FromContext(c).Errorf("token creation attempted without settings.tokens.create")
+		response.Error(c, response.ErrNotPermitted, errors.New("settings.tokens.create is required"))
+		return
+	}
+	if c.GetString("tid") == models.UserTypeAPI.String() {
+		logger.FromContext(c).Errorf("api token principal attempted to create a new token")
+		response.Error(c, response.ErrNotPermitted, errors.New("api tokens cannot create new api tokens"))
+		return
+	}
+
 	uid := c.GetUint64("uid")
 	rid := c.GetUint64("rid")
 	uhash := c.GetString("uhash")

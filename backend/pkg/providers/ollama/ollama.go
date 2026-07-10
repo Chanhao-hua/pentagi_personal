@@ -3,9 +3,6 @@ package ollama
 import (
 	"context"
 	"embed"
-	"fmt"
-	"net/http"
-	"net/url"
 	"os"
 	"slices"
 	"time"
@@ -16,9 +13,7 @@ import (
 	"pentagi/pkg/system"
 	"pentagi/pkg/templates"
 
-	"github.com/ollama/ollama/api"
 	"github.com/vxcontrol/langchaingo/llms"
-	"github.com/vxcontrol/langchaingo/llms/ollama"
 	"github.com/vxcontrol/langchaingo/llms/streaming"
 )
 
@@ -63,16 +58,7 @@ func DefaultProviderConfig(cfg *config.Config) (*pconfig.ProviderConfig, error) 
 	return BuildProviderConfig(cfg, configData)
 }
 
-func newOllamaClient(serverURL string, httpClient *http.Client) (*api.Client, error) {
-	parsedURL, err := url.Parse(serverURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Ollama server URL: %w", err)
-	}
-
-	return api.NewClient(parsedURL, httpClient), nil
-}
-
-func loadAvailableModelsFromServer(client *api.Client) (pconfig.ModelsConfig, error) {
+func loadAvailableModelsFromServer(client *Client) (pconfig.ModelsConfig, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultAPICallTimeout)
 	defer cancel()
 
@@ -82,9 +68,9 @@ func loadAvailableModelsFromServer(client *api.Client) (pconfig.ModelsConfig, er
 	}
 
 	var models pconfig.ModelsConfig
-	for _, model := range response.Models {
+	for _, model := range response {
 		modelConfig := pconfig.ModelConfig{
-			Name:  model.Name,
+			Name:  model,
 			Price: nil, // ollama is free local inference, no pricing
 		}
 		models = append(models, modelConfig)
@@ -112,9 +98,8 @@ func getConfigModelsList(baseModel string, providerConfig *pconfig.ProviderConfi
 	return models
 }
 
-func ensureModelsAvailable(ctx context.Context, client *api.Client, models []string) error {
+func ensureModelsAvailable(ctx context.Context, client *Client, models []string) error {
 	errs := make(chan error, len(models))
-	pullProgress := func(api.ProgressResponse) error { return nil }
 
 	for _, model := range models {
 		go func(model string) {
@@ -122,14 +107,14 @@ func ensureModelsAvailable(ctx context.Context, client *api.Client, models []str
 			showCtx, cancelShow := context.WithTimeout(ctx, defaultAPICallTimeout)
 			defer cancelShow()
 
-			if _, err := client.Show(showCtx, &api.ShowRequest{Model: model}); err == nil {
+			if err := client.Show(showCtx, model); err == nil {
 				// model exists locally, no need to pull
 				errs <- nil
 				return
 			}
 
 			// model doesn't exist, pull it from registry
-			errs <- client.Pull(ctx, &api.PullRequest{Model: model}, pullProgress)
+			errs <- client.Pull(ctx, model)
 		}(model)
 	}
 
@@ -143,7 +128,7 @@ func ensureModelsAvailable(ctx context.Context, client *api.Client, models []str
 }
 
 type ollamaProvider struct {
-	llm            *ollama.LLM
+	llm            *Client
 	model          string
 	models         pconfig.ModelsConfig
 	providerName   provider.ProviderName
@@ -167,7 +152,7 @@ func New(
 		timeout = defaultPullTimeout
 	}
 
-	apiClient, err := newOllamaClient(serverURL, httpClient)
+	apiClient, err := NewClient(serverURL, httpClient, cfg.OllamaServerAPIKey, baseModel)
 	if err != nil {
 		return nil, err
 	}
@@ -183,22 +168,6 @@ func New(
 		}
 	}
 
-	options := []ollama.Option{
-		ollama.WithServerURL(serverURL),
-		ollama.WithHTTPClient(httpClient),
-		ollama.WithModel(baseModel),
-	}
-
-	// Add API key for Ollama Cloud support
-	if cfg.OllamaServerAPIKey != "" {
-		options = append(options, ollama.WithAPIKey(cfg.OllamaServerAPIKey))
-	}
-
-	client, err := ollama.New(options...)
-	if err != nil {
-		return nil, err
-	}
-
 	availableModels := pconfig.ModelsConfig{
 		{
 			Name: baseModel,
@@ -212,7 +181,7 @@ func New(
 	}
 
 	return &ollamaProvider{
-		llm:            client,
+		llm:            apiClient,
 		model:          baseModel,
 		models:         availableModels,
 		providerName:   providerName,

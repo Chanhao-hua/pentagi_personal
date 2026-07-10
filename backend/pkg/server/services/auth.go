@@ -155,7 +155,7 @@ func (s *AuthService) AuthLogin(c *gin.Context) {
 	session.Set("uname", user.Name)
 	session.Options(sessions.Options{
 		HttpOnly: true,
-		Secure:   c.Request.TLS != nil,
+		Secure:   requestUsesHTTPS(c.Request),
 		SameSite: http.SameSiteLaxMode,
 		Path:     s.cfg.BaseURL,
 		MaxAge:   int(expires),
@@ -196,7 +196,7 @@ func (s *AuthService) refreshCookie(c *gin.Context, resp *info, privs []string) 
 	session.Set("tid", resp.User.Type.String())
 	session.Options(sessions.Options{
 		HttpOnly: true,
-		Secure:   c.Request.TLS != nil,
+		Secure:   requestUsesHTTPS(c.Request),
 		SameSite: http.SameSiteLaxMode,
 		Path:     s.cfg.BaseURL,
 		MaxAge:   expires,
@@ -714,19 +714,20 @@ func (s *AuthService) setCallbackCookie(
 	name, value string, maxAge int,
 	sameSite http.SameSite,
 ) {
-	// Check both direct TLS and X-Forwarded-Proto header (for reverse proxy setups)
-	useTLS := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
-
 	c := &http.Cookie{
 		Name:     name,
 		Value:    value,
 		HttpOnly: true,
-		Secure:   useTLS,
+		Secure:   requestUsesHTTPS(r),
 		SameSite: sameSite,
 		Path:     path.Join(s.cfg.BaseURL, s.cfg.LoginCallbackURL),
 		MaxAge:   maxAge,
 	}
 	http.SetCookie(w, c)
+}
+
+func requestUsesHTTPS(r *http.Request) bool {
+	return r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 }
 
 func (s *AuthService) resetSession(c *gin.Context) {
@@ -736,7 +737,7 @@ func (s *AuthService) resetSession(c *gin.Context) {
 	session.Set("exp", now.Unix())
 	session.Options(sessions.Options{
 		HttpOnly: true,
-		Secure:   c.Request.TLS != nil,
+		Secure:   requestUsesHTTPS(c.Request),
 		SameSite: http.SameSiteLaxMode,
 		Path:     s.cfg.BaseURL,
 		MaxAge:   -1,

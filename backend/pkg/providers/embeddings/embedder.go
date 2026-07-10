@@ -7,6 +7,7 @@ import (
 
 	"pentagi/pkg/config"
 	"pentagi/pkg/observability/langfuse"
+	ollamaprovider "pentagi/pkg/providers/ollama"
 	"pentagi/pkg/system"
 
 	"github.com/vxcontrol/langchaingo/embeddings"
@@ -16,7 +17,6 @@ import (
 	"github.com/vxcontrol/langchaingo/llms/googleai"
 	hgclient "github.com/vxcontrol/langchaingo/llms/huggingface"
 	"github.com/vxcontrol/langchaingo/llms/mistral"
-	"github.com/vxcontrol/langchaingo/llms/ollama"
 	"github.com/vxcontrol/langchaingo/llms/openai"
 )
 
@@ -129,23 +129,16 @@ func newOllama(cfg *config.Config, httpClient *http.Client) (embeddings.Embedder
 	// EmbeddingKey is not supported for ollama
 	model, provider := cfg.EmbeddingModel, "ollama"
 
-	var opts []ollama.Option
 	metadata := langfuse.Metadata{
 		"strip_new_lines": cfg.EmbeddingStripNewLines,
 		"batch_size":      cfg.EmbeddingBatchSize,
 	}
+	serverURL := cfg.EmbeddingURL
 	if cfg.EmbeddingURL != "" {
-		opts = append(opts, ollama.WithServerURL(cfg.EmbeddingURL))
 		metadata["url"] = cfg.EmbeddingURL
 	}
-	if cfg.EmbeddingModel != "" {
-		opts = append(opts, ollama.WithModel(cfg.EmbeddingModel))
-	}
-	if httpClient != nil {
-		opts = append(opts, ollama.WithHTTPClient(httpClient))
-	}
 
-	client, err := ollama.New(opts...)
+	client, err := ollamaprovider.NewClient(serverURL, httpClient, "", cfg.EmbeddingModel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ollama client: %w", err)
 	}

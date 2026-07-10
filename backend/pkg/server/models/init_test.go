@@ -22,15 +22,17 @@ func TestStrongPasswordValidator(t *testing.T) {
 		pw      string
 		wantErr bool
 	}{
-		{"long password over 15 chars", "abcdefghijklmnop", false},
-		{"exactly 16 chars", "abcdefghijklmnop", false},
-		{"8 chars with all requirements", "Pass1!ab", false},
-		{"short no special", "pass1", true},
-		{"7 chars with requirements", "Pa1!abc", true},
-		{"8 chars no number", "Pass!abc", true},
-		{"8 chars no uppercase", "pass1!ab", true},
-		{"8 chars no lowercase", "PASS1!AB", true},
-		{"8 chars no special", "Pass1abc", true},
+		{"12 chars with all requirements", "SecurePass1!", false},
+		{"special outside legacy allowlist", "SecurePass1^", false},
+		{"long lowercase only password", "abcdefghijklmnop", true},
+		{"11 chars with all requirements", "SecurePas1!", true},
+		{"no number", "SecurePass!!", true},
+		{"no uppercase", "securepass1!", true},
+		{"no lowercase", "SECUREPASS1!", true},
+		{"no special", "SecurePass12", true},
+		{"common weak password", "password", true},
+		{"common weak numeric password", "123456", true},
+		{"password word with decorations", "Password123!", true},
 		{"empty password", "", true},
 	}
 
